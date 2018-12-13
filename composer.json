@@ -1,5 +1,5 @@
 {
-  "name": "alexmaramaldo/futura-core",
+  "name": "futuraproducoes/futura-core",
   "require": {
     "php": ">=5.5.9",
     "illuminate/contracts": "~5.1",
