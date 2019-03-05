@@ -767,6 +767,7 @@ class  ContentService
                 ->join('v3_videos_seasons', 'v3_seasons.id', '=', 'v3_videos_seasons.season_id')
                 ->join('v3_videos', 'v3_videos.id', '=', 'v3_videos_seasons.video_id')
                 ->where('v3_titles.status', '=', 1)
+                ->where('v3_seasons.availability', '!=', 'EXTERNAL')
                 ->where('v3_seasons.status', '=', 1)
                 ->where('v3_videos.status', '=', 1)
                 ->where(function ($query)
@@ -788,6 +789,7 @@ class  ContentService
                     $ids[count($ids)] = $item->id;
                 $shows = Show::whereIn('id', $ids)
                     ->where('status', 1)
+                    ->where('availability', '!=', 'EXTERNAL')
                     ->orderBy('created_at', 'DESC');
                 //if ($limit > 0)
                 //    $shows->limit($limit);
@@ -811,7 +813,7 @@ class  ContentService
                 $ctlimit = 0;
                 for($i = 0; $i < count($shows); $i++)
                 {
-                    $sessiontitle = $shows[$i]->seasons()->where("status", 1)->get();
+                    $sessiontitle = $shows[$i]->seasons()->where("status", 1)->where('.availability', '!=', 'EXTERNAL')->get();
                     foreach ($sessiontitle as $item) {
                         if ($ctlimit < $limit) {
                             $session = clone $shows[$i];
@@ -834,6 +836,109 @@ class  ContentService
                 return null;
         });
         return $shows;
+    }
+
+    public function getAllSeasonsByGenre($limit = 24, $genre)
+    {
+        $seasons = collect([]);
+        //$this->clearCache('content_service_get_all_sessons_genre_limit_' . $genre . $limit);
+        $shows = \Cache::remember('content_service_get_all_sessons_genre_limit_' . $genre . $limit, 1440, function () use ($limit, $genre, $seasons)
+        {
+            $shows = Show::where("availability", "!=", "EXTERNAL")->where("status", 1)->get();
+            if ($shows->count() > 0)
+            {
+                $ctlimit = 0;
+                for($i = 0; $i < count($shows); $i++)
+                {
+                    $sessiontitle = $shows[$i]->seasons()->where("status", 1)->where('.availability', '!=', 'EXTERNAL')->get();
+
+                    foreach ($sessiontitle as $item) {
+                        $title_genre = DB::table("v3_titles_genres")
+                            ->where('title_id', $item->title_id)
+                            ->where('genre_id', $genre)
+                            ->first();
+                        if ($title_genre && $ctlimit < $limit) {
+                            $session = clone $shows[$i];
+                            $session->myurl = '/show/' . $session->id . '-' . str_slug($session->title) . '/season/' . $item->id . '-' . str_slug($item->title);
+                            $session->id_title = $session->id;
+                            $session->id_seasson = $item->id;
+                            $session->title = $session->title . ' - ' . $item->title;
+                            $session->cover = $item->cover;
+                            $session->highlight = $item->highlight;
+                            $session->rand = rand(1, 100);
+                            $session->created_at = $item->created_at;
+                            $session->updated_at = $item->updated_at;
+                            $seasons->push($session);
+                        }
+                        $ctlimit++;
+                    }
+                }
+
+                return $seasons->sortBy('rand');
+            } else
+                return null;
+        });
+        return $shows;
+    }
+
+    public static function getAllepisodesBySeason($limit = 50, $sesson)
+    {
+        $episodes = collect([]);
+
+        //$this->clearCache('content_service_get_all_sessons_genre_limit_' . $genre . $limit);
+        //$episodes = \Cache::remember('getAllepisodesBySeason_' . $sesson . $limit, 1440, function () use ($episodes, $limit, $sesson)
+        //{
+            $gepisodes = DB::table("v3_videos")
+                ->select('v3_videos.id_sambavideos',
+                    'v3_seasons.id AS id_seasson',
+                    'v3_seasons.title AS seasson',
+                    'v3_videos.id',
+                    'v3_videos.title',
+                    'v3_videos.description',
+                    'v3_videos.legenda',
+                    'v3_videos.highlight',
+                    'v3_videos.duracao',
+                    'v3_videos.order')
+                ->join('v3_videos_seasons','v3_videos.id','v3_videos_seasons.video_id')
+                ->join('v3_seasons','v3_videos_seasons.season_id','v3_seasons.id')
+                ->where('title_id', $sesson)
+                ->orderByRaw('`v3_seasons`.`order`,position ASC')
+                ->get();
+
+            $ctlimit = 0;
+            if ($gepisodes->count() > 0)
+            {
+                foreach ($gepisodes as $episode)
+                {
+                    if ($ctlimit < $limit)
+                    {
+                        $episod = new Video;
+                        $episod->id_title = $episode->id;
+                        $episod->id_seasson = $episode->id_seasson;
+                        $episod->id_sambavideos = $episode->id_sambavideos;
+                        $episod->id_project = 4307;
+                        $episod->id_georegra = 6;
+                        $episod->title = $episode->seasson . ' - ' . $episode->title;
+                        $episod->description = $episode->description;
+                        $episod->legenda = '';
+                        $episod->cover = '';
+                        $episod->highlight = $episode->highlight;
+                        $episod->highlight2 = '';
+                        $episod->background = '';
+                        $episod->duracao = $episode->duracao;
+                        $episod->order = $episode->order;
+                        $episod->availability = 'EXTERNAL';
+                        $episod->status = 1;
+                        $episod->myurl = $episode->legenda;
+                        $episodes->push($episod);
+                    }
+                    $ctlimit++;
+                }
+                return $episodes;
+            } else
+                return null;
+        //});
+        //return $episodes;
     }
 
     public function getBuyOrRent($limit = 24){
@@ -1174,69 +1279,59 @@ class  ContentService
             {
                 return $movie->visible();
             });
-
             $results['movies'] = $movies;
         }
 
-        /*if(in_array('video', $types))
-        {
-            //Só retorna vídeos que forem episodios de shows, porque videos de movies já virão como movies
-            $videos = Video::where('v3_videos.status', 1)
-                ->where(function($where)use($term){
-                    $where->orWhere('description', 'like', '%'.$term.'%')
-                        ->orWhere(function($subQuery)use($term){
-                            $subQuery->whereHas('tags',function($whereHas)use($term){
-                                $whereHas->select('id');
-                                $whereHas->where('title','like','%'.$term.'%%');
-                            });
-                        });
-                })->get();
-
-            $vids = collect();
-            foreach($videos as $video){
-                // Não pode ser video de filme
-                $season = $video->season()->first();
-                if($season){
-                    if($isApiCall){
-                        // Adiciona atributos no retorno caso seja uma chamada de API
-                        if($show = $video->show()){
-                            $video->title_id = $show->id;
-                        }
-                        $video->id_season = $season->id;
-
-                    }
-                    $vids->push( $video );
-                } elseif ($video->title()->first()){
-                    // Vídeo pertence a um movie. vamos adicionar na listagem de filmes encontrados:
-                    if(isset($results['movies'])){
-                        if(!$results['movies']->contains('title',$video->title)){
-                            if($video->visible())
-                                $results['movies']->push($video);
-                        }
-                    } else{
-                        if($video->visible())
-                            $results['movies'] = collect($video);
-                    }
-                }
-            }
-
-            $vids = $vids->filter(function ($vid)
-            {
-                return $vid->visible();
-            });
-
-            $results['videos'] = $vids;
-        }*/
         $results['videos'] = null;
+        $episodes = collect([]);
+        if(in_array('show', $types)) {
+            $gepisodes = DB::table("v3_videos")
+                ->select('v3_videos.id_sambavideos',
+                    'v3_seasons.id AS id_seasson',
+                    'v3_seasons.title AS seasson',
+                    'v3_videos.id',
+                    'v3_videos.title',
+                    'v3_videos.description',
+                    'v3_videos.legenda',
+                    'v3_videos.highlight',
+                    'v3_videos.duracao',
+                    'v3_videos.availability',
+                    'v3_videos.order')
+                ->join('v3_videos_seasons','v3_videos.id','v3_videos_seasons.video_id')
+                ->join('v3_seasons','v3_videos_seasons.season_id','v3_seasons.id')
+                ->where('v3_videos.availability', 'EXTERNAL')
+                ->where('v3_videos.status', 1)
+                ->where('v3_seasons.status', 1)
+                ->where('v3_videos.title', 'like', '%'.$term.'%')
+                ->orWhere('v3_videos.description', 'like', '%'.$term.'%')
+                ->orderByRaw('v3_seasons.order, position ASC')
+                ->get();
 
-
-        if(in_array('show', $types)){
-            $shows = Show::where('status', 1)->where('title', 'like', '%'.$term.'%')->orWhere('description', 'like', '%'.$term.'%')->get();
-            $shows = $shows->filter(function ($show)
-            {
-                return $show->visible();
-            });
-            $results['shows'] = $shows;
+            if ($gepisodes->count() > 0) {
+                foreach ($gepisodes as $episode) {
+                    $episod = new Video;
+                    $episod->id = $episode->id;
+                    $episod->id_title = $episode->id;
+                    $episod->id_seasson = $episode->id_seasson;
+                    $episod->id_sambavideos = $episode->id_sambavideos;
+                    $episod->id_project = 4307;
+                    $episod->id_georegra = 6;
+                    $episod->title = $episode->seasson . ' - ' . $episode->title;
+                    $episod->description = $episode->description;
+                    $episod->legenda = '';
+                    $episod->cover = '';
+                    $episod->highlight = $episode->highlight;
+                    $episod->highlight2 = '';
+                    $episod->background = '';
+                    $episod->duracao = $episode->duracao;
+                    $episod->order = $episode->order;
+                    $episod->availability = $episode->availability;
+                    $episod->status = 1;
+                    $episod->myurl = $episode->legenda;
+                    $episodes->push($episod);
+                }
+                $results['shows'] = $episodes;
+            }
         }
 
         if(in_array('season', $types)){
@@ -1248,16 +1343,12 @@ class  ContentService
                 }
                 return null;
             });
-
             $results['seasons'] = $seasons->filter();
         }
-
         if( !count($results['movies']) && !count($results['shows']) && !count($results['seasons'])  && !count($results['videos'])){
             return false;
         }
-
         return $results;
-
     }
 
     /**
@@ -1270,10 +1361,7 @@ class  ContentService
         if(!method_exists($item,'getMediaType'))
             return '/';
         if($item->availability == "EXTERNAL")
-        {
-            $title = DB::table('v3_videos_titles')->where('title_id', $item->id)->first();
-            return Video::find($title->video_id)->legenda;
-        }
+            return Video::find($item->id)->legenda;
         $type = $item->getMediaType();
         /* Gera urls do tipo:
             /movie/20-nome-do-filme
