@@ -270,45 +270,45 @@ class  ContentService
         $this->clearCache('random_watched_movie_'.$id_perfil);
         //return \Cache::remember('random_watched_movie_'.$id_perfil, 30, function() use ($id_perfil)
         //{
-            $assistido = Assistido::select('assistido.id_sambavideos')
-                ->whereRaw('assistido.posicao+600 > assistido.duracao')
-                ->where('id_perfis', $id_perfil)
-                ->where('v3_titles.status', 1)
-                ->join('v3_videos', 'v3_videos.id_sambavideos', 'assistido.id_sambavideos')
-                ->leftJoin('v3_videos_titles', 'v3_videos_titles.video_id', 'v3_videos.id')
-                ->leftJoin('v3_videos_seasons', 'v3_videos_seasons.video_id', 'v3_videos.id')
-                ->leftJoin('v3_seasons', 'v3_seasons.id', 'v3_videos_seasons.season_id')
-                ->leftJoin('v3_titles', function($join)
-                {
-                    $join->on('v3_titles.id', '=', 'v3_videos_titles.title_id')
-                        ->orWhere('v3_titles.id', '=', 'v3_seasons.title_id');
-                })
-                ->leftJoin('pricing_item', function($join)
-                {
-                    $join
-                        ->on('pricing_item.item_id', '=', 'v3_titles.id')
-                        ->where(function ($query)
-                        {
-                            $query
-                                ->where(function ($query)
-                                {
-                                    $query
-                                        ->where('date_from', '<=', Carbon::now())
-                                        ->where('date_to', '>=', Carbon::now());
-                                })->orWhere(function ($query) {
-                                    $query
-                                        ->whereNull('date_from')
-                                        ->whereNull('date_to');
-                                });
-                        });
-                })
-                ->with('episodio')
-                ->inRandomOrder()
-                ->first();
-            if($assistido)
-                return $assistido->episodio;
-            else
-                return null;
+        $assistido = Assistido::select('assistido.id_sambavideos')
+            ->whereRaw('assistido.posicao+600 > assistido.duracao')
+            ->where('id_perfis', $id_perfil)
+            ->where('v3_titles.status', 1)
+            ->join('v3_videos', 'v3_videos.id_sambavideos', 'assistido.id_sambavideos')
+            ->leftJoin('v3_videos_titles', 'v3_videos_titles.video_id', 'v3_videos.id')
+            ->leftJoin('v3_videos_seasons', 'v3_videos_seasons.video_id', 'v3_videos.id')
+            ->leftJoin('v3_seasons', 'v3_seasons.id', 'v3_videos_seasons.season_id')
+            ->leftJoin('v3_titles', function($join)
+            {
+                $join->on('v3_titles.id', '=', 'v3_videos_titles.title_id')
+                    ->orWhere('v3_titles.id', '=', 'v3_seasons.title_id');
+            })
+            ->leftJoin('pricing_item', function($join)
+            {
+                $join
+                    ->on('pricing_item.item_id', '=', 'v3_titles.id')
+                    ->where(function ($query)
+                    {
+                        $query
+                            ->where(function ($query)
+                            {
+                                $query
+                                    ->where('date_from', '<=', Carbon::now())
+                                    ->where('date_to', '>=', Carbon::now());
+                            })->orWhere(function ($query) {
+                                $query
+                                    ->whereNull('date_from')
+                                    ->whereNull('date_to');
+                            });
+                    });
+            })
+            ->with('episodio')
+            ->inRandomOrder()
+            ->first();
+        if($assistido)
+            return $assistido->episodio;
+        else
+            return null;
         //});
     }
 
@@ -360,78 +360,78 @@ class  ContentService
         //return \Cache::remember($cacheKey, 1440, function() use ($movie, $type, $min, $max)
         //{
 
-            if ($type == 'movie') {
-                $has = 'title';
-            } else {
-                $has = 'season';
-            }
+        if ($type == 'movie') {
+            $has = 'title';
+        } else {
+            $has = 'season';
+        }
 
-            $related = collect();
-            $titulo = Util::removeStopWords($movie->title);
-            $words = explode(' ', $titulo);
+        $related = collect();
+        $titulo = Util::removeStopWords($movie->title);
+        $words = explode(' ', $titulo);
 
-            //Obtem os conteúdos com base no título
-            //$contents = \Cache::remember('videos_relacionados_por_titulo_' . $movie->id . '_max_' . $max, 1440, function () use ($movie, $has, $words, $max) {
-            $contents = Video::where('status', 1)
-                ->where('id', '!=', $movie->id)
-                ->whereHas($has)
-                ->where(function ($query) use ($words) {
-                    for ($i = 0; $i < count($words); $i++) {
-                        if (strlen($words[$i]) > 2) {
-                            $query->orWhere('title', 'like', '%' . $words[$i] . '%');
-                        }
-                    }
-                })->limit($max)->get();
-            //});
-
-            foreach ($contents as $content)
-                $related->push($content);
-
-            //Obtém os conteúdos com base nas tags
-            foreach ($movie->tags()->get() as $tag)
-            {
-                $videos = $tag->videos()->get();
-                foreach ($videos as $video)
-                {
-                    if ($type == 'movie' && $video->title()->count() > 0 && $video->title !== $movie->title) {
-                        $related->push($video);
-                    } elseif ($type == 'show' && $video->season()->count() > 0 && $video->title !== $movie->title) {
-                        $related->push($video);
+        //Obtem os conteúdos com base no título
+        //$contents = \Cache::remember('videos_relacionados_por_titulo_' . $movie->id . '_max_' . $max, 1440, function () use ($movie, $has, $words, $max) {
+        $contents = Video::where('status', 1)
+            ->where('id', '!=', $movie->id)
+            ->whereHas($has)
+            ->where(function ($query) use ($words) {
+                for ($i = 0; $i < count($words); $i++) {
+                    if (strlen($words[$i]) > 2) {
+                        $query->orWhere('title', 'like', '%' . $words[$i] . '%');
                     }
                 }
-            }
+            })->limit($max)->get();
+        //});
 
-            //Se os conteúdos são de shows, retorna o show.
-            if ($type === 'show')
+        foreach ($contents as $content)
+            $related->push($content);
+
+        //Obtém os conteúdos com base nas tags
+        foreach ($movie->tags()->get() as $tag)
+        {
+            $videos = $tag->videos()->get();
+            foreach ($videos as $video)
             {
-                $related->transform(function ($item, $key)
-                {
-                    if ($show = $item->show())
-                        return $show;
-                });
+                if ($type == 'movie' && $video->title()->count() > 0 && $video->title !== $movie->title) {
+                    $related->push($video);
+                } elseif ($type == 'show' && $video->season()->count() > 0 && $video->title !== $movie->title) {
+                    $related->push($video);
+                }
             }
+        }
 
-            //Se os conteúdos são de filmes, retorna o title.
-            if ($type === 'movie') {
-                $related->transform(function ($item, $key) {
-                    //if ($title = $item->title()->where('availability', '=', 'SVOD')->first()) {
-                    if ($title = $item->title()->first()) {
-                        return $title;
-                    }
-                });
+        //Se os conteúdos são de shows, retorna o show.
+        if ($type === 'show')
+        {
+            $related->transform(function ($item, $key)
+            {
+                if ($show = $item->show())
+                    return $show;
+            });
+        }
 
-            }
-
-            $related = $related->filter()->unique(function ($item) {
-                return $item->id;
+        //Se os conteúdos são de filmes, retorna o title.
+        if ($type === 'movie') {
+            $related->transform(function ($item, $key) {
+                //if ($title = $item->title()->where('availability', '=', 'SVOD')->first()) {
+                if ($title = $item->title()->first()) {
+                    return $title;
+                }
             });
 
-            $related->shuffle()->slice(0, $max);
+        }
 
-            if (count($related) < $min)
-                return [];
+        $related = $related->filter()->unique(function ($item) {
+            return $item->id;
+        });
 
-            return $related;
+        $related->shuffle()->slice(0, $max);
+
+        if (count($related) < $min)
+            return [];
+
+        return $related;
 
         //});
     }
@@ -442,59 +442,59 @@ class  ContentService
         //$this->clearCache($cacheKey);
         //return \Cache::remember($cacheKey, 240, function() use ($id_perfil)
         //{
-            $list = Assistido::select('assistido.id_sambavideos', 'assistido.posicao', 'assistido.duracao', 'assistido.id_perfis')
-                ->whereRaw('assistido.posicao+600 > assistido.duracao')
-                ->where('id_perfis', $id_perfil)
-                ->where('v3_titles.status', 1)
-                ->join('v3_videos', 'v3_videos.id_sambavideos', 'assistido.id_sambavideos')
-                ->leftJoin('v3_videos_titles', 'v3_videos_titles.video_id', 'v3_videos.id')
-                ->leftJoin('v3_videos_seasons', 'v3_videos_seasons.video_id', 'v3_videos.id')
-                ->leftJoin('v3_seasons', 'v3_seasons.id', 'v3_videos_seasons.season_id')
-                ->leftJoin('v3_titles', function($join)
-                {
-                    $join->on('v3_titles.id', '=', 'v3_videos_titles.title_id')
-                        ->orWhere('v3_titles.id', '=', 'v3_seasons.title_id');
-                })
-                ->leftJoin('pricing_item', function($join)
-                {
-                    $join
-                        ->on('pricing_item.item_id', '=', 'v3_titles.id')
-                        ->where(function ($query)
-                        {
-                            $query
-                                ->where(function ($query)
-                                {
-                                    $query
-                                        ->where('date_from', '<=', Carbon::now())
-                                        ->where('date_to', '>=', Carbon::now());
-                                })->orWhere(function ($query) {
-                                    $query
-                                        ->whereNull('date_from')
-                                        ->whereNull('date_to');
-                                });
-                        });
-                })
-                ->with('episodio')
-                ->orderBy('assistido.updated_at', 'desc')
-                ->limit($limit)
-                ->get();
-
-            $list->transform(function($item)
+        $list = Assistido::select('assistido.id_sambavideos', 'assistido.posicao', 'assistido.duracao', 'assistido.id_perfis')
+            ->whereRaw('assistido.posicao+600 > assistido.duracao')
+            ->where('id_perfis', $id_perfil)
+            ->where('v3_titles.status', 1)
+            ->join('v3_videos', 'v3_videos.id_sambavideos', 'assistido.id_sambavideos')
+            ->leftJoin('v3_videos_titles', 'v3_videos_titles.video_id', 'v3_videos.id')
+            ->leftJoin('v3_videos_seasons', 'v3_videos_seasons.video_id', 'v3_videos.id')
+            ->leftJoin('v3_seasons', 'v3_seasons.id', 'v3_videos_seasons.season_id')
+            ->leftJoin('v3_titles', function($join)
             {
-                if($item->episodio) {
-                    $video = $item->episodio;
-                    if ($video->description == "") {
-                        $title = $video->title()->first();
-                        if($title)
-                            $video->description = $video->title()->first()->description;
-                    }
-                    return $item;
+                $join->on('v3_titles.id', '=', 'v3_videos_titles.title_id')
+                    ->orWhere('v3_titles.id', '=', 'v3_seasons.title_id');
+            })
+            ->leftJoin('pricing_item', function($join)
+            {
+                $join
+                    ->on('pricing_item.item_id', '=', 'v3_titles.id')
+                    ->where(function ($query)
+                    {
+                        $query
+                            ->where(function ($query)
+                            {
+                                $query
+                                    ->where('date_from', '<=', Carbon::now())
+                                    ->where('date_to', '>=', Carbon::now());
+                            })->orWhere(function ($query) {
+                                $query
+                                    ->whereNull('date_from')
+                                    ->whereNull('date_to');
+                            });
+                    });
+            })
+            ->with('episodio')
+            ->orderBy('assistido.updated_at', 'desc')
+            ->limit($limit)
+            ->get();
+
+        $list->transform(function($item)
+        {
+            if($item->episodio) {
+                $video = $item->episodio;
+                if ($video->description == "") {
+                    $title = $video->title()->first();
+                    if($title)
+                        $video->description = $video->title()->first()->description;
                 }
-            });
-            $list_collect = collect();
-            foreach($list as $item)
-                $list_collect->push($item->episodio);
-            return $list_collect->filter();
+                return $item;
+            }
+        });
+        $list_collect = collect();
+        foreach($list as $item)
+            $list_collect->push($item->episodio);
+        return $list_collect->filter();
         //});
     }
 
@@ -502,63 +502,63 @@ class  ContentService
     {
         //$this->clearCache('content_service_get_continue_watching_'.$id_perfil);
         //return \Cache::remember('content_service_get_continue_watching_'.$id_perfil, 10, function() use ($id_perfil, $limit) {
-            $list = Assistido::select('assistido.id_sambavideos', 'assistido.posicao', 'assistido.duracao', 'assistido.id_perfis')
-                ->whereRaw('assistido.posicao+600 < assistido.duracao')
-                ->where('id_perfis', $id_perfil)
-                ->where('v3_titles.status', 1)
-                ->join('v3_videos', 'v3_videos.id_sambavideos', 'assistido.id_sambavideos')
-                ->leftJoin('v3_videos_titles', 'v3_videos_titles.video_id', 'v3_videos.id')
-                ->leftJoin('v3_videos_seasons', 'v3_videos_seasons.video_id', 'v3_videos.id')
-                ->leftJoin('v3_seasons', 'v3_seasons.id', 'v3_videos_seasons.season_id')
-                ->leftJoin('v3_titles', function($join)
-                {
-                    $join->on('v3_titles.id', '=', 'v3_videos_titles.title_id')
-                        ->orWhere('v3_titles.id', '=', 'v3_seasons.title_id');
-                })
-                ->leftJoin('pricing_item', function($join)
-                {
-                    $join
-                        ->on('pricing_item.item_id', '=', 'v3_titles.id')
-                        ->where(function ($query)
-                        {
-                            $query
-                                ->where(function ($query)
-                                {
-                                    $query
-                                        ->where('date_from', '<=', Carbon::now())
-                                        ->where('date_to', '>=', Carbon::now());
-                                })->orWhere(function ($query) {
-                                    $query
-                                        ->whereNull('date_from')
-                                        ->whereNull('date_to');
-                                });
-                        });
-                })
-                ->with('episodio')
-                ->orderBy('assistido.updated_at', 'desc')
-                ->limit($limit)
-                ->get();
-
-            $list->transform(function($item)
+        $list = Assistido::select('assistido.id_sambavideos', 'assistido.posicao', 'assistido.duracao', 'assistido.id_perfis')
+            ->whereRaw('assistido.posicao+600 < assistido.duracao')
+            ->where('id_perfis', $id_perfil)
+            ->where('v3_titles.status', 1)
+            ->join('v3_videos', 'v3_videos.id_sambavideos', 'assistido.id_sambavideos')
+            ->leftJoin('v3_videos_titles', 'v3_videos_titles.video_id', 'v3_videos.id')
+            ->leftJoin('v3_videos_seasons', 'v3_videos_seasons.video_id', 'v3_videos.id')
+            ->leftJoin('v3_seasons', 'v3_seasons.id', 'v3_videos_seasons.season_id')
+            ->leftJoin('v3_titles', function($join)
             {
-                if($item->episodio) {
-                    if ($item->posicao > 0)
-                        $item->episodio->percent = floor(($item->posicao / $item->duracao) * 100);
-                    else
-                        $item->episodio->percent = 0;
-                    $video = $item->episodio;
-                    if ($video->description == "") {
-                        $title = $video->title()->first();
-                        if($title)
-                            $video->description = $video->title()->first()->description;
-                    }
-                    return $item;
+                $join->on('v3_titles.id', '=', 'v3_videos_titles.title_id')
+                    ->orWhere('v3_titles.id', '=', 'v3_seasons.title_id');
+            })
+            ->leftJoin('pricing_item', function($join)
+            {
+                $join
+                    ->on('pricing_item.item_id', '=', 'v3_titles.id')
+                    ->where(function ($query)
+                    {
+                        $query
+                            ->where(function ($query)
+                            {
+                                $query
+                                    ->where('date_from', '<=', Carbon::now())
+                                    ->where('date_to', '>=', Carbon::now());
+                            })->orWhere(function ($query) {
+                                $query
+                                    ->whereNull('date_from')
+                                    ->whereNull('date_to');
+                            });
+                    });
+            })
+            ->with('episodio')
+            ->orderBy('assistido.updated_at', 'desc')
+            ->limit($limit)
+            ->get();
+
+        $list->transform(function($item)
+        {
+            if($item->episodio) {
+                if ($item->posicao > 0)
+                    $item->episodio->percent = floor(($item->posicao / $item->duracao) * 100);
+                else
+                    $item->episodio->percent = 0;
+                $video = $item->episodio;
+                if ($video->description == "") {
+                    $title = $video->title()->first();
+                    if($title)
+                        $video->description = $video->title()->first()->description;
                 }
-            });
-            $list_collect = collect();
-            foreach($list as $item)
-                $list_collect->push($item->episodio);
-            return $list_collect->filter();
+                return $item;
+            }
+        });
+        $list_collect = collect();
+        foreach($list as $item)
+            $list_collect->push($item->episodio);
+        return $list_collect->filter();
         //});
     }
 
@@ -591,12 +591,12 @@ class  ContentService
             if($fill_cache === 'seasons'){
                 $seasons = collect([]);
                 $shows->each(function($item,$key) use($seasons){
-                   if($showSeasons = $this->getSeasonsOfShow($item)){
-                       $showSeasons->each(function($season,$key) use($seasons){
-                           $seasons->push($season);
-                       });
+                    if($showSeasons = $this->getSeasonsOfShow($item)){
+                        $showSeasons->each(function($season,$key) use($seasons){
+                            $seasons->push($season);
+                        });
 
-                   }
+                    }
                 });
 
                 $shows = $seasons->sortByDesc('created_at');
@@ -888,55 +888,55 @@ class  ContentService
         //$this->clearCache('content_service_get_all_sessons_genre_limit_' . $genre . $limit);
         //$episodes = \Cache::remember('getAllepisodesBySeason_' . $sesson . $limit, 1440, function () use ($episodes, $limit, $sesson)
         //{
-            $gepisodes = DB::table("v3_videos")
-                ->select('v3_videos.id_sambavideos',
-                    'v3_seasons.id AS id_seasson',
-                    'v3_seasons.title AS seasson',
-                    'v3_videos.id',
-                    'v3_videos.title',
-                    'v3_videos.description',
-                    'v3_videos.legenda',
-                    'v3_videos.highlight',
-                    'v3_videos.duracao',
-                    'v3_videos.order')
-                ->join('v3_videos_seasons','v3_videos.id','v3_videos_seasons.video_id')
-                ->join('v3_seasons','v3_videos_seasons.season_id','v3_seasons.id')
-                ->where('title_id', $sesson)
-                ->orderByRaw('`v3_seasons`.`order`,position ASC')
-                ->get();
+        $gepisodes = DB::table("v3_videos")
+            ->select('v3_videos.id_sambavideos',
+                'v3_seasons.id AS id_seasson',
+                'v3_seasons.title AS seasson',
+                'v3_videos.id',
+                'v3_videos.title',
+                'v3_videos.description',
+                'v3_videos.legenda',
+                'v3_videos.highlight',
+                'v3_videos.duracao',
+                'v3_videos.order')
+            ->join('v3_videos_seasons','v3_videos.id','v3_videos_seasons.video_id')
+            ->join('v3_seasons','v3_videos_seasons.season_id','v3_seasons.id')
+            ->where('title_id', $sesson)
+            ->orderByRaw('`v3_seasons`.`order`,position ASC')
+            ->get();
 
-            $ctlimit = 0;
-            if ($gepisodes->count() > 0)
+        $ctlimit = 0;
+        if ($gepisodes->count() > 0)
+        {
+            foreach ($gepisodes as $episode)
             {
-                foreach ($gepisodes as $episode)
+                if ($ctlimit < $limit)
                 {
-                    if ($ctlimit < $limit)
-                    {
-                        $episod = new Video;
-                        $episod->id_title = $episode->id;
-                        $episod->id_seasson = $episode->id_seasson;
-                        $episod->id_sambavideos = $episode->id_sambavideos;
-                        $episod->id_project = 4307;
-                        $episod->id_georegra = 6;
-                        $episod->title = $episode->seasson . ' - ' . $episode->title;
-                        $episod->description = $episode->description;
-                        $episod->legenda = '';
-                        $episod->cover = '';
-                        $episod->highlight = $episode->highlight;
-                        $episod->highlight2 = '';
-                        $episod->background = '';
-                        $episod->duracao = $episode->duracao;
-                        $episod->order = $episode->order;
-                        $episod->availability = 'EXTERNAL';
-                        $episod->status = 1;
-                        $episod->myurl = $episode->legenda;
-                        $episodes->push($episod);
-                    }
-                    $ctlimit++;
+                    $episod = new Video;
+                    $episod->id_title = $episode->id;
+                    $episod->id_seasson = $episode->id_seasson;
+                    $episod->id_sambavideos = $episode->id_sambavideos;
+                    $episod->id_project = 4307;
+                    $episod->id_georegra = 6;
+                    $episod->title = $episode->seasson . ' - ' . $episode->title;
+                    $episod->description = $episode->description;
+                    $episod->legenda = '';
+                    $episod->cover = '';
+                    $episod->highlight = $episode->highlight;
+                    $episod->highlight2 = '';
+                    $episod->background = '';
+                    $episod->duracao = $episode->duracao;
+                    $episod->order = $episode->order;
+                    $episod->availability = 'EXTERNAL';
+                    $episod->status = 1;
+                    $episod->myurl = $episode->legenda;
+                    $episodes->push($episod);
                 }
-                return $episodes;
-            } else
-                return null;
+                $ctlimit++;
+            }
+            return $episodes;
+        } else
+            return null;
         //});
         //return $episodes;
     }
@@ -944,7 +944,7 @@ class  ContentService
     public function getBuyOrRent($limit = 24){
         $this->clearCache('content_service_get_buy_or_rent_limit_'.$limit);
         $seasons = \Cache::remember('content_service_get_buy_or_rent_limit_'.$limit, 1440, function() use ($limit) {
-            
+
             $items = DB::table('pricing_item')
                 ->select('item_id')
                 ->where('item_type', 'season')
@@ -999,42 +999,42 @@ class  ContentService
         $movies = \Cache::remember('content_service_get_lancamentos_limit_'.$limit.'_'.$perfil, 1440, function() use ($limit)
         {
             $movies = Movie::select(
-            "v3_titles.id",
-            "v3_titles.title",
-            "v3_titles.description",
-            "v3_titles.type",
-            "v3_titles.cover",
-            "v3_titles.highlight",
-            "v3_titles.status",
-            "v3_titles.availability",
-            "v3_titles.created_at",
-            "v3_titles.updated_at",
-            "pricing_item.item_id")
-            ->where('v3_titles.status', 1)
-            ->leftJoin('v3_titles_genres', 'v3_titles_genres.title_id', 'v3_titles.id')
-            ->leftJoin('v3_genres', 'v3_genres.id', 'v3_titles_genres.title_id')
-            ->leftJoin('title_information', 'title_information.item_id', 'v3_titles.id')
-            ->leftJoin('pricing_item', 'v3_titles.id', 'pricing_item.item_id')
-            ->where(function ($query)
-            {
-                $query
-                    ->where(function ($query)
-                    {
-                        $query
-                            ->where('date_from', '<=', Carbon::now())
-                            ->where('date_to', '>=', Carbon::now());
-                    })->orWhere(function ($query) {
-                        $query
-                            ->whereNull('date_from')
-                            ->whereNull('date_to');
-                    });
-            })
-            ->orderBy('v3_titles.created_at','DESC');
+                "v3_titles.id",
+                "v3_titles.title",
+                "v3_titles.description",
+                "v3_titles.type",
+                "v3_titles.cover",
+                "v3_titles.highlight",
+                "v3_titles.status",
+                "v3_titles.availability",
+                "v3_titles.created_at",
+                "v3_titles.updated_at",
+                "pricing_item.item_id")
+                ->where('v3_titles.status', 1)
+                ->leftJoin('v3_titles_genres', 'v3_titles_genres.title_id', 'v3_titles.id')
+                ->leftJoin('v3_genres', 'v3_genres.id', 'v3_titles_genres.title_id')
+                ->leftJoin('title_information', 'title_information.item_id', 'v3_titles.id')
+                ->leftJoin('pricing_item', 'v3_titles.id', 'pricing_item.item_id')
+                ->where(function ($query)
+                {
+                    $query
+                        ->where(function ($query)
+                        {
+                            $query
+                                ->where('date_from', '<=', Carbon::now())
+                                ->where('date_to', '>=', Carbon::now());
+                        })->orWhere(function ($query) {
+                            $query
+                                ->whereNull('date_from')
+                                ->whereNull('date_to');
+                        });
+                })
+                ->orderBy('v3_titles.created_at','DESC');
             if($limit > 0)
                 $movies->limit($limit);
             $movies = $movies
-            ->distinct()
-            ->get();
+                ->distinct()
+                ->get();
             $movies = $movies->filter(function ($movie)
             {
                 return $movie->visible();
@@ -1061,62 +1061,62 @@ class  ContentService
             $this->clearCache($keyName);
             //return \Cache::remember($keyName, 1440, function() use ($types, $limit, $perfil)
             //{
-                $assistidos = Assistido::where('id_perfis', $perfil)->groupBy('id_sambavideos')->get()->take(30);
-                $videos_assistidos = collect();
-                $related_category = collect();
-                $assistidos->each(function($item) use ($videos_assistidos, $related_category)
-                {
-                    if($item->episodio)
-                        $videos_assistidos->push($item->episodio->show());
-                });
-                $videos_assistidos = $videos_assistidos->filter();
-                $videos_assistidos->each(function($item) use ($related_category)
-                {
-                    if($item && $item->categories){
-                        $category_id = $item->categories;
-                        if($category =  $category_id->first())
-                            if($item->visible()) {
-                                if($item->availability == "SVOD")
+            $assistidos = Assistido::where('id_perfis', $perfil)->groupBy('id_sambavideos')->get()->take(30);
+            $videos_assistidos = collect();
+            $related_category = collect();
+            $assistidos->each(function($item) use ($videos_assistidos, $related_category)
+            {
+                if($item->episodio)
+                    $videos_assistidos->push($item->episodio->show());
+            });
+            $videos_assistidos = $videos_assistidos->filter();
+            $videos_assistidos->each(function($item) use ($related_category)
+            {
+                if($item && $item->categories){
+                    $category_id = $item->categories;
+                    if($category =  $category_id->first())
+                        if($item->visible()) {
+                            if($item->availability == "SVOD")
+                                $related_category->push($category->titles);
+                            elseif($item->availability == "TVOD")
+                            {
+                                $movies = Movie::
+                                where("v3_titles.id", $item->id)
+                                    ->where('v3_titles.status', 1)
+                                    ->leftJoin('v3_titles_genres', 'v3_titles_genres.title_id', 'v3_titles.id')
+                                    ->leftJoin('v3_genres', 'v3_genres.id', 'v3_titles_genres.title_id')
+                                    ->leftJoin('title_information', 'title_information.item_id', 'v3_titles.id')
+                                    ->leftJoin('pricing_item', 'v3_titles.id', 'pricing_item.item_id')
+                                    ->where(function ($query)
+                                    {
+                                        $query
+                                            ->where(function ($query)
+                                            {
+                                                $query
+                                                    ->where('date_from', '<=', Carbon::now())
+                                                    ->where('date_to', '>=', Carbon::now());
+                                            })->orWhere(function ($query) {
+                                                $query
+                                                    ->whereNull('date_from')
+                                                    ->whereNull('date_to');
+                                            });
+                                    })
+                                    ->distinct()
+                                    ->get();
+                                if($movies)
                                     $related_category->push($category->titles);
-                                elseif($item->availability == "TVOD")
-                                {
-                                    $movies = Movie::
-                                        where("v3_titles.id", $item->id)
-                                        ->where('v3_titles.status', 1)
-                                        ->leftJoin('v3_titles_genres', 'v3_titles_genres.title_id', 'v3_titles.id')
-                                        ->leftJoin('v3_genres', 'v3_genres.id', 'v3_titles_genres.title_id')
-                                        ->leftJoin('title_information', 'title_information.item_id', 'v3_titles.id')
-                                        ->leftJoin('pricing_item', 'v3_titles.id', 'pricing_item.item_id')
-                                        ->where(function ($query)
-                                        {
-                                            $query
-                                                ->where(function ($query)
-                                                {
-                                                    $query
-                                                        ->where('date_from', '<=', Carbon::now())
-                                                        ->where('date_to', '>=', Carbon::now());
-                                                })->orWhere(function ($query) {
-                                                    $query
-                                                        ->whereNull('date_from')
-                                                        ->whereNull('date_to');
-                                                });
-                                        })
-                                        ->distinct()
-                                        ->get();
-                                    if($movies)
-                                        $related_category->push($category->titles);
-                                }
                             }
-                    }
-                });
-                if($related_category->count() > 0)
-                    return $related_category->collapse()->unique('id')->shuffle()->take($limit);
-                else
-                    return collect([]);
+                        }
+                }
+            });
+            if($related_category->count() > 0)
+                return $related_category->collapse()->unique('id')->shuffle()->take($limit);
+            else
+                return collect([]);
             //});
         } catch(\Exception $ex){
             \Log::error("Falha ao obter sugestões",[
-               'perfil'=>$perfil,
+                'perfil'=>$perfil,
                 'types'=>json_encode($types),
                 'exception'=>$ex->getMessage().' '.$ex->getLine(). ' '.$ex->getFile()
             ]);
@@ -1230,22 +1230,21 @@ class  ContentService
      */
     public function searchContent( $term, $types=array('movie','show','season','video'), $limit=24, $isApiCall = false)
     {
-
-        $results = array();
+        $results = ['movies' => [], 'shows' => [], 'seasons' => [], 'videos'=> []];
 
         if(in_array('movie', $types)){
             $movies = Movie::select(
-                    "v3_titles.id",
-                    "v3_titles.title",
-                    "v3_titles.description",
-                    "v3_titles.type",
-                    "v3_titles.cover",
-                    "v3_titles.highlight",
-                    "v3_titles.status",
-                    "v3_titles.availability",
-                    "v3_titles.created_at",
-                    "v3_titles.updated_at",
-                    "pricing_item.item_id")
+                "v3_titles.id",
+                "v3_titles.title",
+                "v3_titles.description",
+                "v3_titles.type",
+                "v3_titles.cover",
+                "v3_titles.highlight",
+                "v3_titles.status",
+                "v3_titles.availability",
+                "v3_titles.created_at",
+                "v3_titles.updated_at",
+                "pricing_item.item_id")
                 ->where('v3_titles.status', 1)
                 ->where('v3_titles.title', 'like', '%'.$term.'%')
                 ->orWhere('v3_titles.description', 'like', '%'.$term.'%')
@@ -1352,10 +1351,10 @@ class  ContentService
     }
 
     /**
-    * Gera a url de um item (movie, show, season, movie) contendo slug.
-    * Para obter o id do slug usar a funão idFromSlug logo abaixo.
-    * @param mixed $item Instância de um item
-    */
+     * Gera a url de um item (movie, show, season, movie) contendo slug.
+     * Para obter o id do slug usar a funão idFromSlug logo abaixo.
+     * @param mixed $item Instância de um item
+     */
     public function url( $item )
     {
         if(!method_exists($item,'getMediaType'))
@@ -1396,10 +1395,10 @@ class  ContentService
     }
 
     /**
-    * Para obter o id do slug (ex. 99-meu-filme retorna 99)
-    * @param string $slug
-    * @return int
-    **/
+     * Para obter o id do slug (ex. 99-meu-filme retorna 99)
+     * @param string $slug
+     * @return int
+     **/
     public function idFromSlug( $slug ){
 
         if(is_numeric($slug)){
@@ -1649,11 +1648,11 @@ class  ContentService
         $videos = collect([]);
 
         $shows->each(function($show,$key) use($videos){
-           $show->seasons()->each(function($season,$key)use($videos){
-              $season->videos()->each(function($video,$key)use($videos){
-                  $videos->push($video);
-              });
-           });
+            $show->seasons()->each(function($season,$key)use($videos){
+                $season->videos()->each(function($video,$key)use($videos){
+                    $videos->push($video);
+                });
+            });
         });
 
         return $videos;
@@ -1668,7 +1667,7 @@ class  ContentService
     {
         //Guarda generos por um mês
         return Cache::remember('genres',17280,function(){
-           return \Univer\Entities\Genre::orderBy('title')->get();
+            return \Univer\Entities\Genre::orderBy('title')->get();
         });
     }
 
