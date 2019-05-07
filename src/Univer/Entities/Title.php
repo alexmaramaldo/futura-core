@@ -11,6 +11,7 @@ use Univer\Contracts\iMediaInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class Title extends Model implements iMediaInterface
 {
@@ -204,6 +205,39 @@ class Title extends Model implements iMediaInterface
                     });
             });
             //dd($query->toSql());
+        return $query;
+    }
+
+    public function scopeOfGenreMK($query, $genre_ids)
+    {
+        $user = Auth::user();
+
+        $plano = $user
+            ->planos()
+            ->select('_001_isps_tickets.name as uname',
+                '_001_isps_tickets.email as uemail',
+                '_001_isps_tickets.id_integracao as uintegracao',
+                '_001_isps_packages_tickets.type as plano',
+                '_001_isps_packages_tickets.plane as pacote',
+                '_001_isps.company as empresa',
+                '_001_isps.contact as contato',
+                '_001_isps.email as eemail',
+                '_001_isps.phone as etelefone')
+            ->join('_001_isps_tickets','id_transaction','id_plano')
+            ->join('_001_isps_packages_tickets','_001_isps_packages_tickets.id_isps_package_ticket','_001_isps_tickets.id_isps_package_ticket')
+            ->join('_001_isps','_001_isps.id_isp','_001_isps_packages_tickets.id_isp')
+            ->where('planos.status', 'ativo')
+            ->where('_001_isps_packages_tickets.type', Category::find(Genre::find($genre_ids)->id_category)->slug)
+            ->first();
+
+        $genre_ids = is_array($genre_ids) ? $genre_ids : array($genre_ids);
+
+        $query = $query->select(DB::raw("v3_titles.id, v3_videos.title, v3_videos.description, 'MARKETPLACE' as type, v3_videos.highlight, v3_videos.availability, v3_videos.updated_at, v3_videos.created_at, case " . (($plano) ? '1' : '0') . " when 1 then concat(v3_videos.legenda" . ((!empty($plano) && $plano->plano == 'espn') ? ", '&mvpd=watchtvbrasil&apikey=77bf60aa-dd56-4d38-8407-dfd52fdce6ee'" : '') . ") else concat('/marketplace/', v3_videos.id) end as myurl, '" . (($plano) ? '_blank' : '_self') . "' as targuet"))
+            ->join('v3_titles_genres', 'v3_titles.id', '=', 'v3_titles_genres.title_id')
+            ->join('v3_videos_titles', 'v3_titles.id', '=', 'v3_videos_titles.title_id')
+            ->join('v3_videos', 'v3_videos_titles.video_id', '=', 'v3_videos.id')
+            ->whereIn('v3_titles_genres.genre_id', $genre_ids);
+        //dd($query->toSql());
         return $query;
     }
 

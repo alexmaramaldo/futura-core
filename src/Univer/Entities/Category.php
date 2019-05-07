@@ -14,9 +14,11 @@ class Category extends Model
     protected $fillable = [
         'title',
         'id_georegra',
+        'type',
         'slug',
         'order',
         'highlight',
+        'watermark',
         'status'
     ];
     public $rules = [
@@ -45,6 +47,7 @@ class Category extends Model
         $object->id_georegra        = $data['id_georegra'];
         $object->title              = $data['title'];
         $object->slug               = $data['slug'];
+        $object->type               = $data['type'];
         $object->order              = $data['order'];
         $object->status             = $data['status'];
         return $object;
@@ -60,6 +63,7 @@ class Category extends Model
         $object->id_georegra        = $data['id_georegra'];
         $object->title              = $data['title'];
         $object->slug               = $data['slug'];
+        $object->type               = $data['type'];
         $object->order              = $data['order'];
         $object->status             = $data['status'];
         return $object;

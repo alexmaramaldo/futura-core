@@ -56,6 +56,10 @@ class ClerkService
         {
             throw new \Exception("Objeto media não parece ser uma instancia de iMediainterface");
         }
+        if(!\App\CacheIp::get()['canaccess'])
+        {
+            return false;
+        }
         if($idUser > 0)
         {
             $userKey = $idUser;

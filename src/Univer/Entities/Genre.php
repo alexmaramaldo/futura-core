@@ -11,7 +11,8 @@ class Genre extends Model
     public    $timestamps = false;
     protected $fillable = [
         'title',
-        'status'
+        'status',
+        'id_category'
     ];
 
     public $rules = [
